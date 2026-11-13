@@ -22,7 +22,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cardStates, sentIds } from "../lib/cardState";
 import type { DispatchFailure, Reservation } from "../lib/dispatch";
 import type { WorktreeSession } from "../lib/sessions";
-import { backlogTask, errorMessage, newTask, reopenTask, type TaskWithDeps } from "../lib/tasks";
+import {
+  backlogTask,
+  errorMessage,
+  newTask,
+  reopenTask,
+  type TaskWithDeps,
+  updateTask,
+} from "../lib/tasks";
 import { useDispatchActions } from "../lib/useDispatchActions";
 import { judgeLane, type LaneContext, useDispatchTargets } from "../lib/useDispatchTargets";
 import { useLocalStorageState } from "../lib/useLocalStorageState";
@@ -361,7 +368,8 @@ export function Board({
         mode="new"
         tagOptions={projectTags}
         onSubmit={async (v) => {
-          await newTask(v.title, v.description, v.priority, v.tags);
+          const t = await newTask(v.title, v.description, v.priority, v.tags);
+          if (v.url) await updateTask(t.id, { pr_url: v.url });
           await reload();
         }}
       />
