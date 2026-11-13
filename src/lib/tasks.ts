@@ -27,6 +27,7 @@ export interface Task {
   created_by: string | null;
   tags: string[];
   branch: string | null;
+  /** The task's URL: by default the pull request with its work. */
   pr_url: string | null;
   created_at: string;
   updated_at: string;
@@ -123,6 +124,13 @@ export function parseTags(raw: string): string[] {
     if (t && !out.includes(t)) out.push(t);
   }
   return out;
+}
+
+/** The patch that sets a task's URL from the form field: nothing when unchanged,
+ *  `""` to clear it. */
+export function urlPatch(current: string | null, raw: string): { pr_url?: string } {
+  const next = raw.trim();
+  return next === (current ?? "") ? {} : { pr_url: next };
 }
 
 /** Whether two tag lists hold the same tags, ignoring order. */

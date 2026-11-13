@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { type DepNode, depChanges, directDeps, parseTags, parseTaskIds, sameTags } from "./tasks";
+import {
+  type DepNode,
+  depChanges,
+  directDeps,
+  parseTags,
+  parseTaskIds,
+  sameTags,
+  urlPatch,
+} from "./tasks";
 
 describe("parseTags", () => {
   it("trims, drops empties and repeats, keeps first-seen order", () => {
@@ -59,5 +67,22 @@ describe("depChanges", () => {
 
   it("is a no-op when nothing changed", () => {
     expect(depChanges([1, 2], [2, 1])).toEqual({ add: [], remove: [] });
+  });
+});
+
+describe("urlPatch", () => {
+  it("sets a new URL, trimmed", () => {
+    expect(urlPatch(null, " https://example.com/pr/1 ")).toEqual({
+      pr_url: "https://example.com/pr/1",
+    });
+  });
+
+  it("clears a URL emptied in the form", () => {
+    expect(urlPatch("https://example.com/pr/1", "  ")).toEqual({ pr_url: "" });
+  });
+
+  it("is a no-op when the URL didn't change", () => {
+    expect(urlPatch("https://example.com/pr/1", "https://example.com/pr/1")).toEqual({});
+    expect(urlPatch(null, "")).toEqual({});
   });
 });

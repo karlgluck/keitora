@@ -2,6 +2,7 @@
 // dependency tree, description, activity log, and contextual actions. Reloads on
 // task selection and whenever the board's task list changes (revision prop).
 
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PRIORITY_PILL, STATUS_DOT, shortTime } from "../lib/taskStyles";
@@ -21,6 +22,7 @@ import {
   type TaskDetail,
   unclaimTask,
   updateTask,
+  urlPatch,
 } from "../lib/tasks";
 import { TaskFormDialog } from "./TaskFormDialog";
 
@@ -224,6 +226,20 @@ export function Inspector({
             </Field>
           )}
 
+          {task.pr_url && (
+            <Field label="URL">
+              <button
+                type="button"
+                title="Open in the browser"
+                // biome-ignore lint/style/noNonNullAssertion: guarded by the pr_url check above
+                onClick={() => act(() => openUrl(task.pr_url!))}
+                className="block max-w-full truncate text-left font-mono text-[12px] text-accent-text underline-offset-2 hover:underline"
+              >
+                {task.pr_url}
+              </button>
+            </Field>
+          )}
+
           {task.description && (
             <Field label="Description">
               <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-tx-2">
@@ -325,6 +341,7 @@ export function Inspector({
             priority: task.priority,
             description: task.description,
             tags: task.tags,
+            url: task.pr_url ?? "",
             blockedBy: directDeps(detail.deps),
           }}
           onSubmit={async (v) => {
@@ -334,6 +351,7 @@ export function Inspector({
                 priority: v.priority,
                 description: v.description,
                 ...(sameTags(task.tags, v.tags) ? {} : { tags: v.tags }),
+                ...urlPatch(task.pr_url, v.url),
               });
               // Removals first, so swapping one blocker for another never trips the
               // cycle check on an edge that is about to go.

@@ -83,9 +83,9 @@ enum TaskCmd {
     /// human marks it done. Records the current git branch if the task has none
     Review {
         id: i64,
-        /// The pull request with the work, shown on the board card
-        #[arg(long = "pr")]
-        pr: Option<String>,
+        /// The task's URL: the pull request with the work, shown on the board card
+        #[arg(long = "url", visible_alias = "pr")]
+        url: Option<String>,
     },
     /// Mark a task cancelled
     Cancel { id: i64 },
@@ -107,8 +107,9 @@ enum TaskCmd {
         status: Option<String>,
         #[arg(long)]
         branch: Option<String>,
-        #[arg(long = "pr")]
-        pr: Option<String>,
+        /// The task's URL (by default its pull request; "" clears it)
+        #[arg(long = "url", visible_alias = "pr")]
+        url: Option<String>,
         /// Replace the tags (comma-separated; "" clears them)
         #[arg(long = "tags")]
         tags: Option<String>,
@@ -402,7 +403,7 @@ async fn run_task(
                     println!("  Branch: {b}");
                 }
                 if let Some(p) = &t.pr_url {
-                    println!("  PR: {p}");
+                    println!("  URL: {p}");
                 }
                 if !twd.blocked_by.is_empty() {
                     let ids = twd
@@ -481,9 +482,9 @@ async fn run_task(
                 }
             }
         }
-        TaskCmd::Review { id, pr } => {
+        TaskCmd::Review { id, url } => {
             let mut task = backend.set_review(id, &me).await?;
-            let upd = review_update(task.branch.as_deref(), current_branch().as_deref(), pr);
+            let upd = review_update(task.branch.as_deref(), current_branch().as_deref(), url);
             if !upd.is_empty() {
                 backend.update(id, &me, &upd).await?;
                 task = backend.require(id).await?;
@@ -514,7 +515,7 @@ async fn run_task(
             priority,
             status,
             branch,
-            pr,
+            url,
             tags,
         } => {
             if let Some(p) = &priority {
@@ -529,7 +530,7 @@ async fn run_task(
                 priority,
                 status,
                 branch,
-                pr_url: pr,
+                pr_url: url,
                 tags: tags.as_deref().map(parse_tags),
             };
             backend.update(id, &me, &upd).await?;
@@ -898,8 +899,9 @@ fn claim_progress(task: &Task, worktree: &str) -> ClaimProgress {
     }
 }
 
-/// The fields `task review` records with the hand-off: the PR, when given, and the
-/// current git branch when the task has none yet (a detached HEAD has no branch).
+/// The fields `task review` records with the hand-off: the task's URL (its PR), when
+/// given, and the current git branch when the task has none yet (a detached HEAD has
+/// no branch).
 fn review_update(
     task_branch: Option<&str>,
     head_branch: Option<&str>,
@@ -1369,7 +1371,7 @@ mod tests {
             Cli::try_parse_from(["keitora", "task", "review", "7"])
                 .unwrap()
                 .cmd,
-            Cmd::Task(TaskCmd::Review { id: 7, pr: None })
+            Cmd::Task(TaskCmd::Review { id: 7, url: None })
         ));
         match Cli::try_parse_from([
             "keitora",
@@ -1382,11 +1384,30 @@ mod tests {
         .unwrap()
         .cmd
         {
-            Cmd::Task(TaskCmd::Review { id, pr }) => {
+            Cmd::Task(TaskCmd::Review { id, url }) => {
                 assert_eq!(id, 7);
-                assert_eq!(pr.as_deref(), Some("https://example.com/pr/1"));
+                assert_eq!(url.as_deref(), Some("https://example.com/pr/1"));
             }
             _ => panic!("expected `task review --pr`"),
+        }
+        // `--url` is the flag's own name; `--pr` above is its alias.
+        for cmd in ["review", "update"] {
+            match Cli::try_parse_from([
+                "keitora",
+                "task",
+                cmd,
+                "7",
+                "--url",
+                "https://example.com/pr/2",
+            ])
+            .unwrap()
+            .cmd
+            {
+                Cmd::Task(TaskCmd::Review { url, .. } | TaskCmd::Update { url, .. }) => {
+                    assert_eq!(url.as_deref(), Some("https://example.com/pr/2"));
+                }
+                _ => panic!("expected `task {cmd} --url`"),
+            }
         }
         assert!(matches!(
             Cli::try_parse_from(["keitora", "task", "done", "7"])
