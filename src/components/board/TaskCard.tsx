@@ -2,9 +2,9 @@
 // reason, Sent, Active, Review, Blocked, Done), any failed send with its reason, and the
 // actions that state allows: Dispatch (auto-pick) on an open card, Retry on a
 // pending card whose send failed, Release on an assigned card, Reopen on a backlog
-// card, Claim for the focused worktree, Mark done on a card in review (with its branch
-// and PR, so the reviewer knows what to look at). The card menu adds Mark done on an
-// active card and Reopen on a done one.
+// card, Claim for the focused worktree, and a review card's branch and PR, so the
+// reviewer knows what to look at. The card menu adds Reopen on a done one. Mark done
+// lives in the Inspector, not on the card.
 
 import { useDraggable } from "@dnd-kit/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -170,7 +170,6 @@ export function TaskCard({
           onRelease={() => env.onRelease(t.id)}
           onBacklog={() => env.onBacklog(t.id)}
           onReopen={() => env.onReopen(t.id)}
-          onMarkDone={() => env.onMarkDone(t.id)}
         />
 
         {/* Right-side badge slot: one state chip. */}
@@ -269,26 +268,9 @@ export function TaskCard({
           )}
         </div>
       )}
-      {/* A card in review offers Mark done, the human's step. Reserved cards hide Claim
-          (a human must not self-claim an agent's reserved task); a failed one offers
-          Retry, every one a subtle hover Release. */}
-      {inReview ? (
-        env.actor !== null && (
-          <div className={`${actionMtCls} pl-2`}>
-            <button
-              title="Reviewed: move it to Done"
-              onClick={(e) => {
-                e.stopPropagation();
-                env.onMarkDone(task.id);
-              }}
-              {...stop}
-              className="rounded-chip border border-accent bg-accent px-2.5 py-1 text-[11px] font-semibold text-[var(--color-on-accent)]"
-            >
-              Mark done
-            </button>
-          </div>
-        )
-      ) : reserved ? (
+      {/* Reserved cards hide Claim (a human must not self-claim an agent's reserved
+          task); a failed one offers Retry, every one a subtle hover Release. */}
+      {reserved ? (
         <div
           className={`${actionMtCls} flex gap-1.5 pl-2 ${
             failed

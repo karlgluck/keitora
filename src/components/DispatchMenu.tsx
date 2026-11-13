@@ -3,8 +3,9 @@
 // header (hover/focus-visible) or by `D` when the card is selected (the parent
 // drives `open`). Order: Dispatch (auto-pick) first (also Shift+D, without the menu);
 // then the pool worktrees (→ send now, accent; → pending, dim) — worktrees outside
-// the dispatch pool never appear; then Mark done (active and review cards), Release,
-// and Move to backlog / Reopen. A done or cancelled card's menu offers only Reopen.
+// the dispatch pool never appear; then Release, and Move to backlog / Reopen (active
+// and review cards offer neither: Mark done lives in the Inspector). A done or
+// cancelled card's menu offers only Reopen.
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDown } from "lucide-react";
@@ -37,7 +38,6 @@ export function DispatchMenu({
   onRelease,
   onBacklog,
   onReopen,
-  onMarkDone,
 }: {
   card: TaskWithDeps;
   state: CardState;
@@ -51,11 +51,10 @@ export function DispatchMenu({
   onRelease: () => void;
   onBacklog: () => void;
   onReopen: () => void;
-  onMarkDone: () => void;
 }) {
   const backlog = state.kind === "backlog";
-  // Active and review cards belong to their worktree's lane: they offer Mark done, not
-  // the backlog. Finished cards offer only Reopen.
+  // Active and review cards belong to their worktree's lane, so they can't go to the
+  // backlog. Finished cards offer only Reopen.
   const { markDone: inLane, reopen: finished } = finishActions(card.status);
   const blocked = card.blocked_by.length > 0;
   const dispatchable = !backlog && !blocked && (state.kind === "open" || state.kind === "pending");
@@ -156,15 +155,6 @@ export function DispatchMenu({
 
               {(card.assigned_to || !inLane) && (
                 <DropdownMenu.Separator className="my-1 h-px bg-line" />
-              )}
-              {inLane && (
-                <DropdownMenu.Item
-                  onSelect={() => onMarkDone()}
-                  className={`${itemCls} text-accent-text`}
-                >
-                  <span className="h-1.5 w-1.5 flex-none rounded-full bg-idle" />
-                  <span>Mark done</span>
-                </DropdownMenu.Item>
               )}
               {card.assigned_to && (
                 <DropdownMenu.Item onSelect={() => onRelease()} className={`${itemCls} text-tx-2`}>
