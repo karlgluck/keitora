@@ -899,6 +899,12 @@ function AppInner() {
       void handleSwitchProjectRef.current(g.key, g.summary, { select: w, silent: true });
     }
   }, []);
+  // A worktree row clicked on the board becomes the current worktree; the board stays
+  // up. Only worktrees Cmd+Up/Down can reach (directory present) are taken.
+  const availableRef = useRef<string[]>([]);
+  const selectBoardWorktree = useCallback((w: string) => {
+    if (availableRef.current.includes(w)) setSelected(w);
+  }, []);
   // Focus a worktree picked in the performance overlay, switching project when needed.
   const focusPerfSession = useCallback(
     (project: string, worktree: string) => {
@@ -964,6 +970,7 @@ function AppInner() {
     () => activeWorktrees.filter((w) => w.status === "available").map((w) => w.name),
     [activeWorktrees],
   );
+  availableRef.current = availableWorktrees;
   // Ordered project names for the cycle chords. Memoized so the keymap ctx stays
   // stable across project-list refreshes that don't change the names.
   const projectNames = useMemo(() => registryProjects.map((p) => p.name), [registryProjects]);
@@ -1260,6 +1267,7 @@ function AppInner() {
                 worktreeNames={worktreeNames}
                 pool={dispatchPool}
                 currentWorktree={selected}
+                onSelectWorktree={selectBoardWorktree}
                 sessions={sessions}
                 actor={actor}
                 selectedId={selectedTaskId}
