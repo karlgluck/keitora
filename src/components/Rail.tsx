@@ -641,6 +641,7 @@ function ProjectMenu({
   group,
   onOpenChange,
   onCloseAutoFocus,
+  onNewTask,
   onNewWorktree,
   onReveal,
   onCollapseOthers,
@@ -652,6 +653,7 @@ function ProjectMenu({
   group: GroupModel | null;
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus: (e: Event) => void;
+  onNewTask: (g: GroupModel) => void;
   onNewWorktree: (g: GroupModel) => void;
   onReveal: (g: GroupModel) => void;
   onCollapseOthers: (g: GroupModel) => void;
@@ -676,6 +678,9 @@ function ProjectMenu({
               <DropdownMenu.Label className={menuLabelCls} title={group.summary.root}>
                 {group.key}
               </DropdownMenu.Label>
+              <DropdownMenu.Item onSelect={run(onNewTask)} className={`${menuItemCls} text-tx-2`}>
+                New task…
+              </DropdownMenu.Item>
               <DropdownMenu.Item
                 onSelect={run(onNewWorktree)}
                 className={`${menuItemCls} text-tx-2`}
@@ -760,6 +765,7 @@ export function Rail({
   onSelectLane,
   onOpenDiff,
   onLaneAction,
+  onNewTask,
   onNewWorktree,
   onReorder,
   railView,
@@ -784,6 +790,8 @@ export function Rail({
   /** A worktree-menu action on a lane; switches to the lane's project first unless it is
    *  the active one and ready. */
   onLaneAction: (g: GroupModel, worktree: string, action: PendingAction) => void;
+  /** Open the New task form on a project without switching to it. */
+  onNewTask: (g: GroupModel) => void;
   onNewWorktree: (g: GroupModel) => void;
   /** Persist a new project order (registry keys). */
   onReorder: (keys: string[]) => Promise<void>;
@@ -1108,6 +1116,7 @@ export function Rail({
             el.focus();
           }
         }}
+        onNewTask={onNewTask}
         onNewWorktree={onNewWorktree}
         onReveal={(g) => void reveal(g)}
         onCollapseOthers={(g) => updateExpanded(() => collapseOthers(g.key))}

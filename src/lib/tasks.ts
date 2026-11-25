@@ -194,9 +194,10 @@ export interface TaskBoardResponse {
 }
 
 /** All non-archived, non-backlog tasks with their dep edges (the board model),
- *  stamped with the active project they belong to. */
-export function listTasks(): Promise<TaskBoardResponse> {
-  return invoke<TaskBoardResponse>("tasks_list", { filter: null });
+ *  stamped with the project they belong to: `project` (a registry key) or, when
+ *  omitted, the active one. */
+export function listTasks(project?: string): Promise<TaskBoardResponse> {
+  return invoke<TaskBoardResponse>("tasks_list", { filter: null, project: project ?? null });
 }
 
 /** The board fetched in a single backend call: tasks + dispatched reservations,
@@ -290,8 +291,9 @@ export function markTaskDone(id: number): Promise<DoneResult> {
   return invoke("task_mark_done", { id });
 }
 
-export function updateTask(id: number, patch: TaskUpdatePatch): Promise<void> {
-  return invoke("task_update", { id, patch });
+/** Update task `id` of `project` (a registry key; omitted = the active project). */
+export function updateTask(id: number, patch: TaskUpdatePatch, project?: string): Promise<void> {
+  return invoke("task_update", { id, patch, project: project ?? null });
 }
 
 /** Make task `id` blocked by `dependsOn`. Rejects self-deps, cycles and duplicates. */
@@ -310,13 +312,21 @@ export function deleteTask(id: number): Promise<void> {
   return invoke("task_delete", { id });
 }
 
+/** Create a task in `project` (a registry key; omitted = the active project). */
 export function newTask(
   title: string,
   description: string,
   priority: Priority,
   tags: string[],
+  project?: string,
 ): Promise<Task> {
-  return invoke<Task>("task_new", { title, description, priority, tags });
+  return invoke<Task>("task_new", {
+    title,
+    description,
+    priority,
+    tags,
+    project: project ?? null,
+  });
 }
 
 /** Fires when the task DB changes (this app, the CLI, or another worktree). */

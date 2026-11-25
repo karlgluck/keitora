@@ -1,6 +1,6 @@
-// Reusable task form in a Radix dialog — used for "New task" (Board) and "Edit"
+// Reusable task form in a Radix dialog — used for "New task" (NewTaskDialog) and "Edit"
 // (Inspector). Edit also covers the task's dependencies ("Blocked by"), which only
-// exist once the task does.
+// exist once the task does. New can also pick the project the task goes to.
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useId, useState } from "react";
@@ -29,6 +29,9 @@ export function TaskFormDialog({
   mode,
   initial,
   tagOptions = [],
+  projects,
+  project,
+  onProjectChange,
   onSubmit,
 }: {
   open: boolean;
@@ -37,6 +40,11 @@ export function TaskFormDialog({
   initial?: Partial<TaskFormValues>;
   /** The project's tags, suggested when the Tags field is focused. */
   tagOptions?: string[];
+  /** Registry keys of the projects a new task can go to; shows a Project field. */
+  projects?: string[];
+  /** The project the task goes to (one of `projects`). */
+  project?: string;
+  onProjectChange?: (project: string) => void;
   onSubmit: (values: TaskFormValues) => Promise<void>;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -102,6 +110,23 @@ export function TaskFormDialog({
   // Form body, rendered inside the dialog below.
   const fields = (
     <>
+      {mode === "new" && projects && project !== undefined && (
+        <label className="flex flex-col gap-1.5">
+          <span className={labelText}>Project</span>
+          <select
+            className={field}
+            value={project}
+            onChange={(e) => onProjectChange?.(e.target.value)}
+          >
+            {projects.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <label className="flex flex-col gap-1.5">
         <span className={labelText}>Title</span>
         <input
@@ -183,7 +208,9 @@ export function TaskFormDialog({
   const title_ = mode === "new" ? "New task" : "Edit task";
   const desc_ =
     mode === "new"
-      ? "Create a task in the shared board."
+      ? project !== undefined
+        ? `Create a task on ${project}'s board.`
+        : "Create a task in the shared board."
       : "Update this task's details, tags and dependencies.";
 
   return (

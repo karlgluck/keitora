@@ -6,7 +6,8 @@
 
 use keitora_tasks::{
     BackendError, ClaimOutcome, DepNode, DispatchLogEntry, ListFilter, LocalStore, LogEntry,
-    ProjectConfig, Reservation, Task, TaskBackend, TaskUpdate, TaskWithDeps, WorktreeSession,
+    ProjectConfig, Reservation, Task, TaskBackend, TaskUpdate, TaskWithDeps, UserConfig,
+    WorktreeSession,
 };
 use serde::Serialize;
 
@@ -80,6 +81,30 @@ pub(crate) fn open_backend() -> Result<(Box<dyn TaskBackend>, ProjectConfig), St
     let config = keitora_tasks::resolve_active().map_err(|e| e.to_string())?;
     let backend = keitora_tasks::open_backend(&config).map_err(|e| e.to_string())?;
     Ok((backend, config))
+}
+
+/// Open the task backend of the registered project `project` (its registry key), or of
+/// the active project when `None` — so a task can be added to another project without
+/// switching to it.
+pub(crate) fn open_backend_in(
+    project: Option<&str>,
+) -> Result<(Box<dyn TaskBackend>, ProjectConfig), String> {
+    let Some(key) = project else {
+        return open_backend();
+    };
+    let user_cfg = UserConfig::load().map_err(|e| e.to_string())?;
+    let config = registered_config(&user_cfg, key)?;
+    let backend = keitora_tasks::open_backend(&config).map_err(|e| e.to_string())?;
+    Ok((backend, config))
+}
+
+/// The effective config of the project registered under `key`.
+fn registered_config(user_cfg: &UserConfig, key: &str) -> Result<ProjectConfig, String> {
+    let pref = user_cfg
+        .projects
+        .get(key)
+        .ok_or_else(|| format!("unknown project: {key}"))?;
+    keitora_tasks::effective_config(pref).map_err(|e| e.to_string())
 }
 
 /// Worktree sessions reconciled against the daemon's live-set: a session whose
@@ -202,11 +227,14 @@ fn resolve_filter(filter: Option<ListFilter>, config: &ProjectConfig) -> ListFil
 }
 
 /// The board model: every non-archived, non-backlog task with its dep edges, stamped
-/// with the active project. `None` filter → a sensible default using the config's
-/// archive window.
+/// with its project — `project` (a registry key) or, when `None`, the active one.
+/// `None` filter → a sensible default using the config's archive window.
 #[tauri::command]
-pub async fn tasks_list(filter: Option<ListFilter>) -> Result<TaskBoard, IpcError> {
-    let (backend, config) = open_backend().map_err(IpcError::internal)?;
+pub async fn tasks_list(
+    filter: Option<ListFilter>,
+    project: Option<String>,
+) -> Result<TaskBoard, IpcError> {
+    let (backend, config) = open_backend_in(project.as_deref()).map_err(IpcError::internal)?;
     let filter = resolve_filter(filter, &config);
     let tasks = backend.list(&filter).await.map_err(|e| to_ipc_error(&e))?;
     Ok(TaskBoard {
@@ -448,9 +476,14 @@ pub async fn task_mark_done(id: i64) -> Result<DoneResult, IpcError> {
     })
 }
 
+/// Update task `id` of `project` (a registry key; `None` = the active project).
 #[tauri::command]
-pub async fn task_update(id: i64, patch: TaskUpdate) -> Result<(), IpcError> {
-    let (backend, _) = open_backend().map_err(IpcError::internal)?;
+pub async fn task_update(
+    id: i64,
+    patch: TaskUpdate,
+    project: Option<String>,
+) -> Result<(), IpcError> {
+    let (backend, _) = open_backend_in(project.as_deref()).map_err(IpcError::internal)?;
     backend
         .update(id, &keitora_tasks::current_worktree(), &patch)
         .await
@@ -477,14 +510,16 @@ pub async fn task_remove_dep(id: i64, depends_on: i64) -> Result<(), IpcError> {
         .map_err(|e| to_ipc_error(&e))
 }
 
+/// Create a task in `project` (a registry key; `None` = the active project).
 #[tauri::command]
 pub async fn task_new(
     title: String,
     description: String,
     priority: String,
     tags: Vec<String>,
+    project: Option<String>,
 ) -> Result<Task, IpcError> {
-    let (backend, _) = open_backend().map_err(IpcError::internal)?;
+    let (backend, _) = open_backend_in(project.as_deref()).map_err(IpcError::internal)?;
     backend
         .create(
             &keitora_tasks::current_worktree(),
@@ -501,6 +536,23 @@ pub async fn task_new(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn registered_config_resolves_a_project_by_registry_key() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path().join("other-proj");
+        std::fs::create_dir_all(&root).unwrap();
+        let mut pref = keitora_tasks::ProjectRef::new(root.clone());
+        pref.db_path = Some(tmp.path().join("other-proj.db"));
+        let mut user_cfg = UserConfig::default();
+        user_cfg.projects.insert("other-proj".into(), pref);
+
+        let config = registered_config(&user_cfg, "other-proj").unwrap();
+        assert_eq!(config.tasks.db_path, tmp.path().join("other-proj.db"));
+
+        let err = registered_config(&user_cfg, "proj").unwrap_err();
+        assert!(err.contains("unknown project: proj"), "{err}");
+    }
 
     fn log_entry(id: i64, task_id: i64, wt: &str, decision: &str) -> DispatchLogEntry {
         DispatchLogEntry {

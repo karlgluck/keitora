@@ -22,22 +22,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cardStates, sentIds } from "../lib/cardState";
 import type { DispatchFailure, Reservation } from "../lib/dispatch";
 import type { WorktreeSession } from "../lib/sessions";
-import {
-  backlogTask,
-  errorMessage,
-  newTask,
-  reopenTask,
-  type TaskWithDeps,
-  updateTask,
-} from "../lib/tasks";
+import { backlogTask, errorMessage, reopenTask, type TaskWithDeps } from "../lib/tasks";
 import { useDispatchActions } from "../lib/useDispatchActions";
 import { judgeLane, type LaneContext, useDispatchTargets } from "../lib/useDispatchTargets";
 import { useLocalStorageState } from "../lib/useLocalStorageState";
 import type { CardEnv } from "./board/cardHelpers";
 import { LaneLayout } from "./board/LaneLayout";
-import { availableTags } from "./board/tagFilter";
 import { useBoardLanes } from "./board/useBoardLanes";
-import { TaskFormDialog } from "./TaskFormDialog";
 import { useToast } from "./Toast";
 
 /** Pure: failures in `now` not in `seen` (keyed by task, lane and time), so the
@@ -64,6 +55,7 @@ export function Board({
   registerOpenCardMenu,
   registerToggleBacklog,
   dispatched,
+  onNewTask,
 }: {
   tasks: TaskWithDeps[];
   /** Backlog tasks (the Open lane shows them when its backlog toggle is on). */
@@ -91,9 +83,10 @@ export function Board({
   registerToggleBacklog?: (fn: () => void) => void;
   /** Reservations already sent — cards in this set show `sent ✓`. */
   dispatched: Reservation[];
+  /** Open the New task form on this project. */
+  onNewTask: () => void;
 }) {
   const [err, setErr] = useState<string | null>(null);
-  const [newOpen, setNewOpen] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [menuTaskId, setMenuTaskId] = useState<number | null>(null);
   // One-shot fly-in: the task that just dispatched and its target worktree.
@@ -113,9 +106,6 @@ export function Board({
     () => new Map([...tasks, ...backlog].map((t) => [t.id, t])),
     [tasks, backlog],
   );
-  // Every tag in use on the project's tasks, backlog included, suggested by the New
-  // task form.
-  const projectTags = useMemo(() => availableTags([...tasks, ...backlog]), [tasks, backlog]);
   const poolSet = useMemo(() => new Set(pool), [pool]);
   const states = useMemo(
     () => cardStates(tasks, backlog, worktreeNames, sessions, dispatched, failures, poolSet),
@@ -325,7 +315,7 @@ export function Board({
           show done
         </label>
         <button
-          onClick={() => setNewOpen(true)}
+          onClick={onNewTask}
           className="flex items-center gap-1.5 rounded-chip border border-accent/40 bg-accent-dim px-2.5 py-1 text-[11.5px] text-accent-text"
         >
           <Plus size={13} /> New
@@ -353,18 +343,6 @@ export function Board({
           )}
         </DragOverlay>
       </DndContext>
-
-      <TaskFormDialog
-        open={newOpen}
-        onOpenChange={setNewOpen}
-        mode="new"
-        tagOptions={projectTags}
-        onSubmit={async (v) => {
-          const t = await newTask(v.title, v.description, v.priority, v.tags);
-          if (v.prUrl) await updateTask(t.id, { pr_url: v.prUrl });
-          await reload();
-        }}
-      />
     </div>
   );
 }
