@@ -62,7 +62,6 @@ export function Board({
   onSelect,
   reload,
   registerOpenCardMenu,
-  registerToggleBacklog,
   dispatched,
 }: {
   tasks: TaskWithDeps[];
@@ -86,9 +85,6 @@ export function Board({
   /** Hand App a stable callback that toggles the DispatchMenu for the selected
    *  card. The keymap's `board.dispatch` binding calls it. */
   registerOpenCardMenu?: (fn: () => void) => void;
-  /** Hand App a stable callback that backlogs / reopens the selected card
-   *  (`board.backlog`). */
-  registerToggleBacklog?: (fn: () => void) => void;
   /** Reservations already sent — cards in this set show `sent ✓`. */
   dispatched: Reservation[];
 }) {
@@ -222,31 +218,18 @@ export function Board({
     return () => clearTimeout(timer);
   }, [flyIn, byId]);
 
-  // Keyboard paths for the selected card. The callbacks are stable across renders —
-  // they read the live selection from refs — so App can hold onto one reference.
+  // Keyboard path for the selected card. The callback is stable across renders — it
+  // reads the live selection from a ref — so App can hold onto one reference.
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
-  const byIdRef = useRef(byId);
-  byIdRef.current = byId;
   const openCardMenu = useCallback(() => {
     const id = selectedIdRef.current;
     if (id === null) return;
     setMenuTaskId((cur) => (cur === id ? null : id));
   }, []);
-  const toggleBacklog = useCallback(() => {
-    const id = selectedIdRef.current;
-    if (id === null) return;
-    const card = byIdRef.current.get(id);
-    if (!card || card.status === "done" || card.status === "cancelled") return;
-    if (card.status === "backlog") runReopen(id);
-    else runBacklog(id);
-  }, [runBacklog, runReopen]);
   useEffect(() => {
     registerOpenCardMenu?.(openCardMenu);
   }, [registerOpenCardMenu, openCardMenu]);
-  useEffect(() => {
-    registerToggleBacklog?.(toggleBacklog);
-  }, [registerToggleBacklog, toggleBacklog]);
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(Number(e.active.id));

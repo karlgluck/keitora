@@ -167,7 +167,6 @@ function makeCtx(overrides: Partial<KeyCtx> = {}): KeyCtx {
     setView: vi.fn(),
     setSelected: vi.fn(),
     openCardMenu: vi.fn(),
-    toggleCardBacklog: vi.fn(),
     adjustFontSize: vi.fn(),
     resetFontSize: vi.fn(),
     projectNames: [],
@@ -192,6 +191,14 @@ describe("perf.toggle binding", () => {
     const ctx = makeCtx();
     binding?.run(ctx);
     expect(ctx.togglePerf).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("backlog key", () => {
+  it("a bare b on the board does nothing; backlog is only reachable from the d menu", () => {
+    const ctx = makeCtx({ view: "board", hasSelectedCard: true });
+    expect(resolveBinding(ev({ key: "b" }), ctx, false)).toBeNull();
+    expect(resolveBinding(ev({ key: "d" }), ctx, false)?.id).toBe("board.dispatch");
   });
 });
 

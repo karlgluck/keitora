@@ -254,11 +254,6 @@ function AppInner() {
   const registerOpenCardMenu = useCallback((fn: () => void) => {
     openCardMenuRef.current = fn;
   }, []);
-  // Same for `b`: backlog / reopen the selected card.
-  const toggleBacklogRef = useRef<() => void>(() => {});
-  const registerToggleBacklog = useCallback((fn: () => void) => {
-    toggleBacklogRef.current = fn;
-  }, []);
 
   // Per-worktree restart signal: the Rail's "Restart session" context-menu item
   // (and a completed CLI transfer) bumps the entry keyed
@@ -1108,7 +1103,6 @@ function AppInner() {
       setView,
       setSelected,
       openCardMenu: () => openCardMenuRef.current(),
-      toggleCardBacklog: () => toggleBacklogRef.current(),
       adjustFontSize,
       resetFontSize,
       projectNames,
@@ -1428,7 +1422,6 @@ function AppInner() {
                 onSelect={setSelectedTaskId}
                 reload={reloadTasks}
                 registerOpenCardMenu={registerOpenCardMenu}
-                registerToggleBacklog={registerToggleBacklog}
                 dispatched={dispatched ?? []}
               />
             </div>
