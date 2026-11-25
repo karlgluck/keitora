@@ -22,6 +22,7 @@ import { DispatchStepsEditor } from "./components/DispatchStepsEditor";
 import { FontSizeHud, type FontSizeHudHandle } from "./components/FontSizeHud";
 import { Inspector } from "./components/Inspector";
 import { KeybindingHelp } from "./components/KeybindingHelp";
+import { NewTaskDialog } from "./components/NewTaskDialog";
 import { Onboarding } from "./components/Onboarding";
 import { PerfOverlay } from "./components/PerfOverlay";
 import { QuitConfirmModal } from "./components/QuitConfirmModal";
@@ -198,6 +199,9 @@ function AppInner() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [perfOpen, setPerfOpen] = useState(false);
   const [wtOpen, setWtOpen] = useState(false);
+  // The New task form's starting project (a registry key); null = closed. The board's
+  // New button opens it on the active project, a project's menu on that project.
+  const [newTaskProject, setNewTaskProject] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Add-project dialog — single instance lifted here so both the rail and
   // SettingsDrawer share one mount (avoids duplicate flow state).
@@ -212,6 +216,8 @@ function AppInner() {
   // the keyboard cycle order can never disagree. One
   // fetch + one subscription via useProjectList.
   const registryProjects = useProjectList();
+  const registryKeys = useMemo(() => registryProjects.map((p) => p.name), [registryProjects]);
+  const activeKey = registryProjects.find((p) => p.active)?.name ?? null;
   // How the rail sorts and filters worktrees, and whether they carry emoji.
   const { view: railView, update: updateRailView } = useRailView();
   // Dropped worktree orders by project key, shown until the project list reports them.
@@ -1371,6 +1377,7 @@ function AppInner() {
           onOpenDiff={openLaneDiff}
           onLaneAction={laneAction}
           onNewWorktree={newWorktreeIn}
+          onNewTask={(g) => setNewTaskProject(g.key)}
           onReorder={persistProjectOrder}
           railView={railView}
           onRailView={updateRailView}
@@ -1410,6 +1417,17 @@ function AppInner() {
           }}
         />
 
+        {/* Adds a task to any project without switching to it — opened from the board or
+            a project's menu in the rail. */}
+        <NewTaskDialog
+          project={newTaskProject}
+          onClose={() => setNewTaskProject(null)}
+          projects={registryKeys}
+          activeKey={activeKey}
+          activeTags={projectTags}
+          onCreated={reloadTasks}
+        />
+
         {/* Board surface — center stage + inspector. Only mounted in board view. */}
         {view === "board" && (
           <>
@@ -1430,6 +1448,7 @@ function AppInner() {
                 registerOpenCardMenu={registerOpenCardMenu}
                 registerToggleBacklog={registerToggleBacklog}
                 dispatched={dispatched ?? []}
+                onNewTask={() => setNewTaskProject(activeKey)}
               />
             </div>
             <Inspector
